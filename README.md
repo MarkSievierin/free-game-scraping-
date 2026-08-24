@@ -1,13 +1,29 @@
 # Epic Games Free Games Telegram Bot
 
-Node.js script that reads Epic Games Store free promotions from its catalog JSON endpoint and sends games with a `-100%` discount to Telegram.
+Node.js script that reads Epic Games Store discounted base-game offers from its HTTP catalog reader, keeps only `-100%` games, and sends them to Telegram. The reader is used because Epic blocks direct requests from the scraper's server with Cloudflare; GraphQL remains available as an explicit `EPIC_CATALOG_MODE=graphql` option.
 
 ## Structure
 
-- `index.js` - application entry point
-- `src/services` - business logic and integrations with external sources
-- `src/clients` - external API clients
-- `src/dto` - request DTOs for transport layer input
+- `index.js` - thin application entry point and environment bootstrap
+- `src/config` - environment parsing and runtime configuration
+- `src/domain` - store-independent game rules and identifiers
+- `src/application` - use cases: run, fetch, notify and stale-message cleanup
+- `src/infrastructure` - MySQL, Telegram and external store integrations
+- `src/presentation` - Telegram message formatting and buttons
+
+The main flow is:
+
+```text
+index.js
+  -> application/run-free-games
+     -> infrastructure/sources/*
+     -> infrastructure/database/*
+     -> presentation/telegram/*
+     -> infrastructure/telegram/*
+```
+
+When `APP_TYPE` is not `prod`, internal errors are sent to `CHAT_ID_DEV` by the
+stage bot. Production only writes errors to the process log.
 
 ## Setup
 
@@ -22,7 +38,7 @@ npm install
 ```env
 APP_TYPE=stage
 MAX_GAMES=
-ENABLE_EPIC=true
+ENABLE_EPIC=false
 ENABLE_STEAM=false
 EPIC_LOCALE=ru-RU
 EPIC_COUNTRY=UA

@@ -9,7 +9,7 @@ const {
   openDatabase,
   resolveMysqlConfig,
   run,
-} = require("../src/services/storage/mysql.utils");
+} = require("../src/infrastructure/database/mysql.client");
 
 const MIGRATIONS_DIRECTORY = path.resolve(__dirname, "..", "migrations");
 

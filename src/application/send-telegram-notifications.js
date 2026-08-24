@@ -1,4 +1,4 @@
-async function sendTelegramNotifications({ telegramClient, notifications }) {
+async function sendTelegramNotifications({ telegramClient, notifications, reportError = async () => {} }) {
   const successfulNotifications = [];
 
   for (const notification of notifications) {
@@ -19,6 +19,14 @@ async function sendTelegramNotifications({ telegramClient, notifications }) {
       });
     } catch (error) {
       const title = notification.title || "notification";
+      await reportError({
+        scope: "telegram.send",
+        error,
+        context: {
+          method: notification.method,
+          title,
+        },
+      });
       console.error(`Ошибка при отправке ${title}: ${error.message}`);
     }
   }

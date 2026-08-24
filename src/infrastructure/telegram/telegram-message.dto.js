@@ -1,4 +1,4 @@
-class TelegramMessageRequestDto {
+class TelegramMessageDto {
   constructor({ chatId, text, disableWebPagePreview = false, parseMode, replyMarkup }) {
     if (!chatId) {
       throw new Error("chatId is required for Telegram message");
@@ -35,10 +35,10 @@ class TelegramMessageRequestDto {
 }
 
 function buildTelegramMessageRequestDto(input) {
-  return new TelegramMessageRequestDto(input);
+  return new TelegramMessageDto(input);
 }
 
 module.exports = {
-  TelegramMessageRequestDto,
+  TelegramMessageDto,
   buildTelegramMessageRequestDto,
 };

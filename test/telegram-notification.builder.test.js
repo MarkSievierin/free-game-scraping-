@@ -3,11 +3,11 @@ const assert = require("node:assert/strict");
 
 const {
   buildFreeGamesTelegramNotifications,
-} = require("../src/builders/telegram-notification.builder");
+} = require("../src/presentation/telegram/notification.builder");
 
 test("adds a subtle channel mention at the end of a game caption", () => {
   const previousUsername = process.env.TELEGRAM_CHANNEL_USERNAME;
-  process.env.TELEGRAM_CHANNEL_USERNAME = "freegametest";
+  process.env.TELEGRAM_CHANNEL_USERNAME = "free_games7722";
 
   try {
     const [notification] = buildFreeGamesTelegramNotifications({
@@ -26,7 +26,7 @@ test("adds a subtle channel mention at the end of a game caption", () => {
       ],
     });
 
-    assert.match(notification.dto.text, /#Game\n\n🎮 Больше бесплатных игр — @freegametest$/u);
+    assert.match(notification.dto.text, /#Game\n\n🎮 Больше бесплатных игр: @free_games7722$/u);
   } finally {
     if (previousUsername === undefined) {
       delete process.env.TELEGRAM_CHANNEL_USERNAME;

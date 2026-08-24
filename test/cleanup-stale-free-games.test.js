@@ -3,7 +3,7 @@ const test = require("node:test");
 
 const {
   cleanupStaleFreeGameMessages,
-} = require("../src/services/telegram/stale-free-games-cleanup.service");
+} = require("../src/application/cleanup-stale-free-game-messages");
 
 function createFakeTelegramClient(calls) {
   return {

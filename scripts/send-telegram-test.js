@@ -1,9 +1,9 @@
 require("dotenv").config();
 
-const { TelegramClient } = require("../src/clients/telegram.client");
-const { sendTelegramNotifications } = require("../src/services/telegram/free-games-notification.service");
-const { resolveTelegramConfig } = require("../src/services/telegram/telegram-config.service");
-const { buildFreeGamesTelegramNotifications } = require("../src/builders/telegram-notification.builder");
+const { TelegramClient } = require("../src/infrastructure/telegram/telegram.client");
+const { sendTelegramNotifications } = require("../src/application/send-telegram-notifications");
+const { resolveTelegramConfig } = require("../src/config/telegram.config");
+const { buildFreeGamesTelegramNotifications } = require("../src/presentation/telegram/notification.builder");
 
 async function main() {
   const { botToken, chatId } = resolveTelegramConfig();

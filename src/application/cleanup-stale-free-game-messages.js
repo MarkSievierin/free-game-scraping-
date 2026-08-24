@@ -62,6 +62,7 @@ async function cleanupStaleFreeGameMessages({
   currentGameUuids,
   enabledStores,
   allowCleanup,
+  reportError = async () => {},
 }) {
   if (!allowCleanup) {
     console.log("Telegram cleanup skipped.");
@@ -92,6 +93,14 @@ async function cleanupStaleFreeGameMessages({
       await actualFreeGamesRepository.markGameEnded(game.id);
       console.log(`Edited stale Telegram message for ${game.uuid}.`);
     } catch (error) {
+      await reportError({
+        scope: "telegram.cleanup",
+        error,
+        context: {
+          action: attemptedDelete ? "delete" : "edit",
+          uuid: game.uuid,
+        },
+      });
       console.error(`Stale Telegram cleanup failed for ${game.uuid}: ${error.message}`);
 
       if (!attemptedDelete) {
@@ -104,6 +113,14 @@ async function cleanupStaleFreeGameMessages({
         await actualFreeGamesRepository.markGameEnded(game.id);
         console.log(`Edited stale Telegram message for ${game.uuid} after delete failed.`);
       } catch (editError) {
+        await reportError({
+          scope: "telegram.cleanup.fallback",
+          error: editError,
+          context: {
+            action: "edit-after-delete-failed",
+            uuid: game.uuid,
+          },
+        });
         console.error(`Stale Telegram edit fallback failed for ${game.uuid}: ${editError.message}`);
         await actualFreeGamesRepository.markGameEditFailed(game.id);
       }

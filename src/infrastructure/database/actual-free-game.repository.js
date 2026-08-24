@@ -4,26 +4,9 @@ const {
   get,
   openDatabase,
   run,
-} = require("./mysql.utils");
-
-function normalizeStore(store) {
-  return String(store || "").trim().toLowerCase();
-}
-
-function buildGameUuid(game) {
-  const store = normalizeStore(game.store);
-  const externalId = String(game.appId || game.link || "").trim();
-
-  if (!store || !externalId) {
-    return "";
-  }
-
-  return `${store}:${externalId}`;
-}
-
-function normalizeServerType(value) {
-  return String(value || "").trim().toLowerCase() === "prod" ? "prod" : "stage";
-}
+} = require("./mysql.client");
+const { normalizeStore, buildGameUuid } = require("../../domain/free-game");
+const { normalizeServerType } = require("../../config/runtime.config");
 
 function buildSqlPlaceholders(values) {
   return values.map(() => "?").join(", ");
@@ -269,7 +252,5 @@ async function createActualFreeGamesRepository({ serverType } = {}) {
 }
 
 module.exports = {
-  buildGameUuid,
   createActualFreeGamesRepository,
-  normalizeServerType,
 };

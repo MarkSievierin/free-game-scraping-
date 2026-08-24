@@ -1,5 +1,5 @@
-const { buildTelegramPhotoRequestDto } = require("../dto/telegram-photo-request.dto");
-const { buildTelegramMessageRequestDto } = require("../dto/telegram-message-request.dto");
+const { buildTelegramPhotoRequestDto } = require("../../infrastructure/telegram/telegram-photo.dto");
+const { buildTelegramMessageRequestDto } = require("../../infrastructure/telegram/telegram-message.dto");
 
 function escapeTelegramHtml(value) {
   return String(value)

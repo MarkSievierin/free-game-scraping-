@@ -1,4 +1,4 @@
-class TelegramPhotoRequestDto {
+class TelegramPhotoDto {
   constructor({ chatId, photo, caption = "", parseMode, replyMarkup }) {
     if (!chatId) {
       throw new Error("chatId is required for Telegram photo");
@@ -35,10 +35,10 @@ class TelegramPhotoRequestDto {
 }
 
 function buildTelegramPhotoRequestDto(input) {
-  return new TelegramPhotoRequestDto(input);
+  return new TelegramPhotoDto(input);
 }
 
 module.exports = {
-  TelegramPhotoRequestDto,
+  TelegramPhotoDto,
   buildTelegramPhotoRequestDto,
 };

@@ -1,5 +1,5 @@
 const cheerio = require("cheerio");
-const { buildGameUuid } = require("../storage/actual-free-games.repository");
+const { buildGameUuid } = require("../../../domain/free-game");
 
 const STEAM_LANGUAGE = "russian";
 const STEAM_COUNTRY_CODE = "ru";
