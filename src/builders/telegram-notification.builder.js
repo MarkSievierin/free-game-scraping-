@@ -69,7 +69,7 @@ function buildGameCaption(game) {
   const channelMention = getChannelMention();
   if (channelMention) {
     lines.push("");
-    lines.push(`🎮 Больше бесплатных игр — ${escapeTelegramHtml(channelMention)}`);
+    lines.push(`🎮 Больше бесплатных игр: ${escapeTelegramHtml(channelMention)}`);
   }
 
   return lines.join("\n");
