@@ -6,7 +6,7 @@ const {
 const { parseEpicBrowseMarkdown } = require("./epic.catalog.parser");
 const { enrichEpicProductElements } = require("./epic.product.client");
 
-const EPIC_REQUEST_TIMEOUT_MS = 10000;
+const EPIC_REQUEST_TIMEOUT_MS = 30000;
 
 async function fetchEpicCatalog(config) {
   const controller = new AbortController();
