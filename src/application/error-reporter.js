@@ -1,15 +1,8 @@
+const { escapeTelegramHtml } = require("../shared/telegram-html");
 const { buildTelegramMessageRequestDto } = require("../infrastructure/telegram/telegram-message.dto");
 const { TelegramClient } = require("../infrastructure/telegram/telegram.client");
 
 const MAX_STACK_LENGTH = 2500;
-
-function escapeTelegramHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
 
 function normalizeError(error) {
   if (error instanceof Error) {

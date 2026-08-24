@@ -13,11 +13,25 @@ function getKnownGameUuidsForStore(knownGameUuidsByType, store) {
 }
 
 function getCurrentGameUuids(games) {
-  if (Array.isArray(games.currentGameUuids)) {
+  if (Array.isArray(games?.currentGameUuids)) {
     return games.currentGameUuids;
   }
 
-  return games.map(buildGameUuid).filter(Boolean);
+  return Array.isArray(games) ? games.map(buildGameUuid).filter(Boolean) : [];
+}
+
+function normalizeSourceResult(result) {
+  if (Array.isArray(result)) {
+    return {
+      games: result,
+      currentGameUuids: getCurrentGameUuids(result),
+    };
+  }
+
+  return {
+    games: Array.isArray(result?.games) ? result.games : [],
+    currentGameUuids: getCurrentGameUuids(result),
+  };
 }
 
 async function fetchGamesFromEnabledSources({
@@ -30,21 +44,23 @@ async function fetchGamesFromEnabledSources({
   const currentGameUuids = [];
 
   if (enableEpic) {
-    const epicGames = await fetchEpicFreeGames({
+    const epicResult = await fetchEpicFreeGames({
       limit: maxGames,
       knownGameUuids: getKnownGameUuidsForStore(knownGameUuidsByType, "epic"),
     });
-    games.push(...epicGames);
-    currentGameUuids.push(...getCurrentGameUuids(epicGames));
+    const epic = normalizeSourceResult(epicResult);
+    games.push(...epic.games);
+    currentGameUuids.push(...epic.currentGameUuids);
   }
 
   if (enableSteam) {
-    const steamGames = await fetchSteamFreeGames({
+    const steamResult = await fetchSteamFreeGames({
       limit: maxGames,
       knownGameUuids: getKnownGameUuidsForStore(knownGameUuidsByType, "steam"),
     });
-    games.push(...steamGames);
-    currentGameUuids.push(...getCurrentGameUuids(steamGames));
+    const steam = normalizeSourceResult(steamResult);
+    games.push(...steam.games);
+    currentGameUuids.push(...steam.currentGameUuids);
   }
 
   return {

@@ -1,12 +1,6 @@
-const DELETE_MESSAGE_MAX_AGE_MS = 47 * 60 * 60 * 1000;
+const { escapeTelegramHtml } = require("../shared/telegram-html");
 
-function escapeTelegramHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
+const DELETE_MESSAGE_MAX_AGE_MS = 47 * 60 * 60 * 1000;
 
 function buildEndedText(game) {
   const title = String(game.title || game.uuid || "Free game").trim();

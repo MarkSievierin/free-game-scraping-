@@ -1,16 +1,10 @@
 const { buildTelegramPhotoRequestDto } = require("../../infrastructure/telegram/telegram-photo.dto");
 const { buildTelegramMessageRequestDto } = require("../../infrastructure/telegram/telegram-message.dto");
-
-function escapeTelegramHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
+const { escapeTelegramHtml } = require("../../shared/telegram-html");
+const { normalizeText } = require("../../shared/text");
 
 function truncateText(value, maxLength) {
-  const normalizedValue = String(value || "").replace(/\s+/g, " ").trim();
+  const normalizedValue = normalizeText(value);
 
   if (normalizedValue.length <= maxLength) {
     return normalizedValue;
