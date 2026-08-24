@@ -33,6 +33,14 @@ function getStoreLabel(store) {
   return "";
 }
 
+function getChannelMention() {
+  const username = String(process.env.TELEGRAM_CHANNEL_USERNAME || "")
+    .trim()
+    .replace(/^@+/, "");
+
+  return username ? `@${username}` : "";
+}
+
 function buildGameCaption(game) {
   const storeLabel = getStoreLabel(game.store);
   const title = storeLabel ? `${game.title} | ${storeLabel}` : game.title;
@@ -56,6 +64,12 @@ function buildGameCaption(game) {
   if (labels.length > 0) {
     lines.push("");
     lines.push(labels.map((label) => `#${escapeTelegramHtml(label.replace(/\s+/g, "_"))}`).join(" "));
+  }
+
+  const channelMention = getChannelMention();
+  if (channelMention) {
+    lines.push("");
+    lines.push(`🎮 Больше бесплатных игр — ${escapeTelegramHtml(channelMention)}`);
   }
 
   return lines.join("\n");

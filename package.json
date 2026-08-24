@@ -1,7 +1,7 @@
 {
   "name": "free-games-telegram-bot",
   "version": "1.0.0",
-  "description": "Epic Games free games scraper with Telegram notifications",
+  "description": "Epic Games free games catalog client with Telegram notifications",
   "main": "index.js",
   "scripts": {
     "setup:db": "node scripts/setup-db.js",
@@ -18,7 +18,6 @@
   "dependencies": {
     "cheerio": "1.0.0-rc.12",
     "dotenv": "^17.2.3",
-    "mysql2": "^3.22.3",
-    "playwright": "^1.59.1"
+    "mysql2": "^3.22.3"
   }
 }

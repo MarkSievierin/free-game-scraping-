@@ -1,121 +1,39 @@
-const cheerio = require("cheerio");
-const { chromium } = require("playwright");
 const { buildGameUuid } = require("../storage/actual-free-games.repository");
 
-const EPIC_BROWSE_URL =
-  "https://store.epicgames.com/ru/browse?sortBy=currentPrice&sortDir=ASC&priceTier=tierDiscouted&category=Game&count=40";
+const EPIC_CATALOG_ENDPOINT =
+  "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions";
 const EPIC_BASE_URL = "https://store.epicgames.com";
-const EPIC_AGE_GATE_COOKIE = {
-  name: "egs_age_gate_dob",
-  value: "1904-2-3",
-  domain: "store.epicgames.com",
-  path: "/",
-  httpOnly: false,
-  secure: true,
-  sameSite: "Lax",
-};
-const EPIC_PAGE_TIMEOUT_MS = 10000;
-const EPIC_RENDER_DELAY_MS = 12000;
-const EPIC_DETAIL_RENDER_DELAY_MS = 8000;
-const EPIC_DETAIL_PROCESS_TIMEOUT_MS = 30000;
-const EPIC_DETAIL_VISIT_DELAY_MIN_MS = 2500;
-const EPIC_DETAIL_VISIT_DELAY_MAX_MS = 4500;
-const EPIC_POST_CATALOG_DELAY_MIN_MS = 2000;
-const EPIC_POST_CATALOG_DELAY_MAX_MS = 4000;
-const EPIC_CATALOG_SCROLL_MIN_PX = 260;
-const EPIC_CATALOG_SCROLL_MAX_PX = 460;
-const EPIC_DETAIL_SCROLL_MIN_PX = 420;
-const EPIC_DETAIL_SCROLL_MAX_PX = 760;
-
-function resolveBooleanEnv(value, defaultValue) {
-  const normalizedValue = String(value || "").trim().toLowerCase();
-
-  if (!normalizedValue) {
-    return defaultValue;
-  }
-
-  return ["1", "true", "yes", "on"].includes(normalizedValue);
-}
+const EPIC_DEFAULT_LOCALE = "ru-RU";
+const EPIC_DEFAULT_COUNTRY = "UA";
+const EPIC_REQUEST_TIMEOUT_MS = 10000;
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function getRandomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+function resolveEpicCatalogConfig({ locale, country, allowCountries } = {}) {
+  const resolvedLocale = normalizeText(locale || process.env.EPIC_LOCALE) || EPIC_DEFAULT_LOCALE;
+  const resolvedCountry = normalizeText(country || process.env.EPIC_COUNTRY) || EPIC_DEFAULT_COUNTRY;
+  const resolvedAllowCountries =
+    normalizeText(allowCountries || process.env.EPIC_ALLOW_COUNTRIES) || resolvedCountry;
+
+  return {
+    locale: resolvedLocale,
+    country: resolvedCountry,
+    allowCountries: resolvedAllowCountries,
+  };
 }
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
+function buildEpicCatalogUrl(config) {
+  const resolvedConfig = resolveEpicCatalogConfig(config);
+  const query = new URLSearchParams(resolvedConfig);
+
+  return `${EPIC_CATALOG_ENDPOINT}?${query.toString()}`;
 }
 
-function getViewportSize(page) {
-  return page.viewportSize() || { width: 1440, height: 900 };
-}
+function buildAbsoluteEpicUrl(value) {
+  const path = normalizeText(value);
 
-async function moveMouseToRandomCatalogPoints(page, moves = getRandomInt(3, 5)) {
-  const viewport = getViewportSize(page);
-
-  for (let index = 0; index < moves; index += 1) {
-    const x = getRandomInt(Math.round(viewport.width * 0.12), Math.round(viewport.width * 0.86));
-    const y = getRandomInt(Math.round(viewport.height * 0.18), Math.round(viewport.height * 0.78));
-
-    await page.mouse.move(x, y, { steps: getRandomInt(12, 28) });
-    await page.waitForTimeout(getRandomInt(120, 360));
-  }
-}
-
-async function wheelInSmallSteps(page, deltaY) {
-  const steps = getRandomInt(2, 4);
-  const stepDelta = deltaY / steps;
-
-  for (let index = 0; index < steps; index += 1) {
-    await page.mouse.wheel(0, stepDelta + getRandomInt(-18, 18));
-    await page.waitForTimeout(getRandomInt(130, 300));
-  }
-}
-
-async function returnCatalogToTop(page) {
-  await page.evaluate(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  await page.waitForTimeout(getRandomInt(650, 1100));
-}
-
-async function performEpicCatalogWarmup(page) {
-  await moveMouseToRandomCatalogPoints(page);
-  await page.waitForTimeout(getRandomInt(250, 600));
-
-  const scrollDelta = getRandomInt(EPIC_CATALOG_SCROLL_MIN_PX, EPIC_CATALOG_SCROLL_MAX_PX);
-  await wheelInSmallSteps(page, scrollDelta);
-  await page.waitForTimeout(getRandomInt(450, 900));
-  await wheelInSmallSteps(page, -scrollDelta);
-  await returnCatalogToTop(page);
-  await moveMouseToRandomCatalogPoints(page, getRandomInt(1, 2));
-}
-
-async function performEpicDetailVisitActivity(page) {
-  await page.waitForTimeout(
-    getRandomInt(EPIC_DETAIL_VISIT_DELAY_MIN_MS, EPIC_DETAIL_VISIT_DELAY_MAX_MS),
-  );
-  await moveMouseToRandomCatalogPoints(page, getRandomInt(2, 4));
-
-  const firstScrollDelta = getRandomInt(EPIC_DETAIL_SCROLL_MIN_PX, EPIC_DETAIL_SCROLL_MAX_PX);
-  await wheelInSmallSteps(page, firstScrollDelta);
-  await page.waitForTimeout(getRandomInt(900, 1700));
-  await moveMouseToRandomCatalogPoints(page, getRandomInt(1, 3));
-
-  const secondScrollDelta = getRandomInt(
-    Math.round(EPIC_DETAIL_SCROLL_MIN_PX * 0.45),
-    Math.round(EPIC_DETAIL_SCROLL_MAX_PX * 0.75),
-  );
-  await wheelInSmallSteps(page, secondScrollDelta);
-  await page.waitForTimeout(getRandomInt(700, 1400));
-  await wheelInSmallSteps(page, -getRandomInt(180, 360));
-  await moveMouseToRandomCatalogPoints(page, getRandomInt(1, 2));
-}
-
-function buildAbsoluteEpicUrl(path) {
   if (!path) {
     return "";
   }
@@ -124,75 +42,13 @@ function buildAbsoluteEpicUrl(path) {
     return path;
   }
 
-  return `${EPIC_BASE_URL}${path}`;
+  return `${EPIC_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 function extractOfferSlug(link) {
   const match = String(link || "").match(/\/p\/([^/?#]+)/);
+
   return match ? match[1] : "";
-}
-
-function extractDiscount(cardText) {
-  const match = normalizeText(cardText).match(/-\d+\s*%/);
-  return match ? match[0].replace(/\s+/g, "") : "";
-}
-
-function extractPriceParts(cardText, discount) {
-  const normalizedText = normalizeText(cardText);
-  const sanitizedText = discount ? normalizedText.replace(discount, " ") : normalizedText;
-  const freePriceMatch = sanitizedText.match(/Бесплатно/i);
-  const originalPriceMatch = sanitizedText.match(/\d[\d\s.,]*\s*[^\s]*₴\*?/u);
-
-  return {
-    originalPrice: normalizeText(originalPriceMatch?.[0] || ""),
-    currentPrice: freePriceMatch ? normalizeText(freePriceMatch[0]) : "",
-  };
-}
-
-function parseEpicGamesFromHtml(html, { limit } = {}) {
-  const $ = cheerio.load(html);
-  const games = [];
-
-  $('a[href*="/p/"]').each((_, element) => {
-    if (limit && games.length >= limit) {
-      return false;
-    }
-
-    const card = $(element);
-    const cardText = normalizeText(card.text());
-    const discount = extractDiscount(cardText);
-
-    if (discount !== "-100%") {
-      return;
-    }
-
-    const relativeLink = card.attr("href")?.trim() || "";
-    const link = buildAbsoluteEpicUrl(relativeLink);
-    const image = card.find('img[data-testid="picture-image"]').first();
-    const imageUrl = image.attr("src")?.trim() || image.attr("data-image")?.trim() || "";
-    const title = normalizeText(image.attr("alt") || "") || "Без названия";
-    const productType = normalizeText(card.find("span").first().text());
-    const { originalPrice, currentPrice } = extractPriceParts(cardText, discount);
-
-    games.push({
-      appId: extractOfferSlug(link),
-      store: "epic",
-      catalogPath: relativeLink,
-      productType,
-      title,
-      discount,
-      price: currentPrice || "Бесплатно",
-      originalPrice,
-      link,
-      imageUrl,
-      description: "",
-      genres: [],
-      tags: productType ? [productType] : [],
-      offerEndsAt: "",
-    });
-  });
-
-  return games;
 }
 
 function formatEpicOfferEndsAt(value) {
@@ -215,7 +71,6 @@ function formatEpicOfferEndsAt(value) {
     hour12: false,
     timeZone: "Europe/Berlin",
   });
-
   const parts = Object.fromEntries(
     formatter
       .formatToParts(date)
@@ -226,246 +81,196 @@ function formatEpicOfferEndsAt(value) {
   return `${parts.day}.${parts.month}.${parts.year} в ${parts.hour}:${parts.minute}`;
 }
 
-function extractOfferEndsAtFromText(value) {
-  const normalizedValue = normalizeText(value);
+function getActivePromotionalOffer(element, now = new Date()) {
+  const nowTimestamp = now.getTime();
+  const promotionGroups = element?.promotions?.promotionalOffers || [];
 
-  if (!normalizedValue) {
-    return "";
+  for (const group of promotionGroups) {
+    for (const promotion of group?.promotionalOffers || []) {
+      const startTimestamp = promotion.startDate ? Date.parse(promotion.startDate) : NaN;
+      const endTimestamp = promotion.endDate ? Date.parse(promotion.endDate) : NaN;
+      const startsInThePast = Number.isNaN(startTimestamp) || startTimestamp <= nowTimestamp;
+      const endsInTheFuture = Number.isNaN(endTimestamp) || endTimestamp > nowTimestamp;
+      const isFreePromotion = promotion.discountSetting?.discountPercentage === 0;
+
+      if (startsInThePast && endsInTheFuture && isFreePromotion) {
+        return promotion;
+      }
+    }
   }
 
-  const saleEndsMatch = normalizedValue.match(
-    /Распродажа\s+заканчивается\s+(\d{2}\.\d{2}\.\d{4}(?:\s+в\s+\d{2}:\d{2})?)/i,
-  );
-
-  if (!saleEndsMatch) {
-    return "";
-  }
-
-  return normalizeText(saleEndsMatch[1]);
+  return null;
 }
 
-function extractEpicSchemaDetails(schemaRaw) {
-  if (!schemaRaw) {
-    return {
-      description: "",
-      offerEndsAt: "",
-    };
+function getEpicImageUrl(element) {
+  const images = Array.isArray(element?.keyImages) ? element.keyImages : [];
+  const preferredImageTypes = ["OfferImageWide", "OfferImageTall", "Thumbnail", "OfferImage"];
+
+  for (const imageType of preferredImageTypes) {
+    const image = images.find((candidate) => candidate?.type === imageType && candidate?.url);
+
+    if (image) {
+      return normalizeText(image.url);
+    }
   }
 
-  try {
-    const schema = JSON.parse(schemaRaw);
-    const primaryOffer = Array.isArray(schema.offers) ? schema.offers[0] : undefined;
+  return normalizeText(images.find((image) => image?.url)?.url || "");
+}
 
-    return {
-      description: normalizeText(primaryOffer?.description || ""),
-      offerEndsAt: formatEpicOfferEndsAt(primaryOffer?.priceValidUntil || ""),
-    };
+function getEpicOriginalPrice(element) {
+  const formattedPrice = element?.price?.totalPrice?.fmtPrice?.originalPrice;
+
+  if (formattedPrice) {
+    return normalizeText(formattedPrice);
+  }
+
+  const originalPrice = element?.price?.totalPrice?.originalPrice;
+  const decimals = element?.price?.totalPrice?.currencyInfo?.decimals;
+
+  if (typeof originalPrice !== "number") {
+    return "";
+  }
+
+  const divisor = 10 ** (Number.isInteger(decimals) ? decimals : 2);
+
+  return String(originalPrice / divisor);
+}
+
+function getEpicTags(element) {
+  const productType = normalizeText(element?.offerType) === "BASE_GAME" ? "Game" : "";
+
+  return productType ? [productType] : [];
+}
+
+function isGameCatalogElement(element) {
+  const categories = Array.isArray(element?.categories) ? element.categories : [];
+  const categoryPaths = categories
+    .map((category) => normalizeText(category?.path).toLowerCase())
+    .filter(Boolean);
+
+  return categoryPaths.some((path) => path === "games" || path.startsWith("games/"));
+}
+
+function mapEpicCatalogElement(element, promotion, locale) {
+  const catalogPath = normalizeText(element?.url);
+  const fallbackSlug = normalizeText(element?.urlSlug || element?.productSlug || element?.id);
+  const fallbackLocale = locale.toLowerCase() === "ru-ru" ? "ru" : locale;
+  const link = buildAbsoluteEpicUrl(catalogPath || `/${fallbackLocale}/p/${fallbackSlug}`);
+  const appId =
+    extractOfferSlug(link) || fallbackSlug;
+
+  if (!appId || !normalizeText(element?.title)) {
+    return null;
+  }
+
+  const productType =
+    normalizeText(element?.offerType) === "BASE_GAME"
+      ? "Game"
+      : normalizeText(element?.offerType || "Game");
+  const tags = getEpicTags(element);
+
+  if (productType && !tags.includes(productType)) {
+    tags.unshift(productType);
+  }
+
+  return {
+    appId,
+    store: "epic",
+    catalogPath: catalogPath || `/${fallbackLocale}/p/${appId}`,
+    productType,
+    title: normalizeText(element.title),
+    discount: "-100%",
+    price: "Бесплатно",
+    originalPrice: getEpicOriginalPrice(element),
+    link,
+    imageUrl: getEpicImageUrl(element),
+    description: normalizeText(element.description || element.longDescription || ""),
+    genres: [],
+    tags,
+    offerEndsAt: formatEpicOfferEndsAt(promotion.endDate),
+  };
+}
+
+function parseEpicGamesFromCatalog(payload, { now = new Date(), locale } = {}) {
+  const elements = payload?.data?.Catalog?.searchStore?.elements;
+  const resolvedLocale = normalizeText(locale) || resolveEpicCatalogConfig().locale;
+  const gamesByUuid = new Map();
+
+  if (!Array.isArray(elements)) {
+    return [];
+  }
+
+  for (const element of elements) {
+    const promotion = getActivePromotionalOffer(element, now);
+
+    if (
+      !promotion ||
+      element?.price?.totalPrice?.discountPrice !== 0 ||
+      !isGameCatalogElement(element)
+    ) {
+      continue;
+    }
+
+    const game = mapEpicCatalogElement(element, promotion, resolvedLocale);
+
+    if (game) {
+      gamesByUuid.set(buildGameUuid(game), game);
+    }
+  }
+
+  return [...gamesByUuid.values()];
+}
+
+async function fetchEpicCatalog(config) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EPIC_REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(buildEpicCatalogUrl(config), {
+      headers: {
+        accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Epic catalog request failed with HTTP ${response.status}`);
+    }
+
+    return response.json();
   } catch (error) {
-    console.error(`Epic schema parse failed: ${error.message}`);
-
-    return {
-      description: "",
-      offerEndsAt: "",
-    };
-  }
-}
-
-async function fetchEpicGameDetails(detailPage, game) {
-  if (!game.link) {
-    return {
-      description: "",
-      offerEndsAt: "",
-    };
-  }
-
-  return Promise.race([
-    (async () => {
-      await detailPage.waitForTimeout(EPIC_DETAIL_RENDER_DELAY_MS);
-      await performEpicDetailVisitActivity(detailPage);
-      const bodyText = await detailPage.evaluate(() => document.body.innerText).catch(() => "");
-      const description = await detailPage
-        .locator(".css-1myreog")
-        .first()
-        .textContent()
-        .then((value) => normalizeText(value))
-        .catch(() => "");
-      const schemaRaw = await detailPage
-        .locator('script#_schemaOrgMarkup-Product[type="application/ld+json"]')
-        .textContent()
-        .catch(() => "");
-      const schemaDetails = extractEpicSchemaDetails(schemaRaw);
-
-      return {
-        description: description || schemaDetails.description,
-        offerEndsAt: extractOfferEndsAtFromText(bodyText) || schemaDetails.offerEndsAt,
-      };
-    })(),
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Epic detail page timed out after ${EPIC_DETAIL_PROCESS_TIMEOUT_MS}ms`));
-      }, EPIC_DETAIL_PROCESS_TIMEOUT_MS);
-    }),
-  ]);
-}
-
-async function openEpicGameDetailsByCatalogClick({ context, catalogPage, game }) {
-  if (!game.catalogPath) {
-    const detailPage = await context.newPage();
-    await detailPage.goto(game.link, {
-      waitUntil: "domcontentloaded",
-      timeout: EPIC_PAGE_TIMEOUT_MS,
-    });
-    return detailPage;
-  }
-
-  const selector = `a[href="${game.catalogPath}"]`;
-  const gameCard = catalogPage.locator(selector).first();
-  await gameCard.waitFor({ state: "visible", timeout: EPIC_PAGE_TIMEOUT_MS });
-  await gameCard.scrollIntoViewIfNeeded();
-
-  const box = await gameCard.boundingBox();
-
-  if (!box) {
-    throw new Error(`Epic catalog card is not clickable for ${game.title}`);
-  }
-
-  const targetX = box.x + Math.min(Math.max(12, box.width * 0.35), box.width - 12);
-  const targetY = box.y + Math.min(Math.max(12, box.height * 0.35), box.height - 12);
-  const viewport = getViewportSize(catalogPage);
-  const approachX = clamp(targetX - getRandomInt(90, 180), 0, viewport.width - 1);
-  const approachY = clamp(targetY + getRandomInt(-80, 80), 0, viewport.height - 1);
-  const hoverX = clamp(targetX + getRandomInt(-8, 8), 0, viewport.width - 1);
-  const hoverY = clamp(targetY + getRandomInt(-8, 8), 0, viewport.height - 1);
-
-  await catalogPage.mouse.move(approachX, approachY, { steps: getRandomInt(18, 32) });
-  await catalogPage.waitForTimeout(getRandomInt(180, 420));
-  await catalogPage.mouse.move(hoverX, hoverY, { steps: getRandomInt(24, 42) });
-  await catalogPage.waitForTimeout(getRandomInt(350, 750));
-  await catalogPage.keyboard.down("Control");
-
-  try {
-    const detailPagePromise = context.waitForEvent("page", { timeout: EPIC_PAGE_TIMEOUT_MS });
-    await catalogPage.mouse.click(hoverX, hoverY, {
-      delay: getRandomInt(130, 280),
-      button: "left",
-    });
-    const detailPage = await detailPagePromise;
-    await detailPage.waitForLoadState("domcontentloaded", { timeout: EPIC_PAGE_TIMEOUT_MS });
-    await detailPage.bringToFront().catch(() => {});
-    return detailPage;
-  } finally {
-    await catalogPage.keyboard.up("Control").catch(() => {});
-  }
-}
-
-async function enrichEpicGames(games, context, catalogPage) {
-  if (games.length === 0) {
-    return games;
-  }
-
-  const enrichedGames = [];
-
-  for (const game of games) {
-    let detailPage;
-
-    try {
-      detailPage = await openEpicGameDetailsByCatalogClick({ context, catalogPage, game });
-      const details = await fetchEpicGameDetails(detailPage, game);
-      enrichedGames.push({
-        ...game,
-        description: details.description,
-        offerEndsAt: details.offerEndsAt,
-      });
-    } catch (error) {
-      console.error(`Epic details fetch failed for ${game.title}: ${error.message}`);
-      enrichedGames.push(game);
-    } finally {
-      await detailPage?.close().catch(() => {});
-      await catalogPage.bringToFront().catch(() => {});
-    }
-  }
-
-  return enrichedGames;
-}
-
-async function createEpicBrowser() {
-  const executablePath = String(process.env.EPIC_BROWSER_EXECUTABLE_PATH || "").trim();
-  const channel = String(process.env.EPIC_BROWSER_CHANNEL || "").trim();
-  const headless = resolveBooleanEnv(process.env.EPIC_BROWSER_HEADLESS, true);
-
-  return chromium.launch({
-    headless: false,
-    ...(executablePath ? { executablePath } : {}),
-    ...(!executablePath && channel ? { channel } : {}),
-    args: [
-      "--disable-blink-features=AutomationControlled",
-      "--disable-dev-shm-usage",
-      "--no-first-run",
-      "--disable-features=IsolateOrigins,site-per-process",
-    ],
-  });
-}
-
-async function createEpicContext(browser) {
-  const context = await browser.newContext({
-    locale: "ru-RU",
-    viewport: { width: 1440, height: 900 },
-    timezoneId: "Europe/Berlin",
-    colorScheme: "dark",
-  });
-
-  await context.route("**/*", async (route) => {
-    if (route.request().resourceType() === "font") {
-      await route.abort();
-      return;
+    if (error.name === "AbortError") {
+      throw new Error(`Epic catalog request timed out after ${EPIC_REQUEST_TIMEOUT_MS}ms`);
     }
 
-    await route.continue();
-  });
-
-  return context;
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-async function fetchFreeGames({ limit, knownGameUuids = [] } = {}) {
-  const browser = await createEpicBrowser();
-  const context = await createEpicContext(browser);
+async function fetchFreeGames({ limit, knownGameUuids = [], catalogConfig } = {}) {
+  const config = resolveEpicCatalogConfig(catalogConfig);
+  const payload = await fetchEpicCatalog(config);
+  const catalogGames = parseEpicGamesFromCatalog(payload, {
+    locale: config.locale,
+  });
+  const currentGameUuids = catalogGames.map(buildGameUuid).filter(Boolean);
+  const knownGameUuidSet = new Set(knownGameUuids);
+  const games = catalogGames
+    .filter((game) => !knownGameUuidSet.has(buildGameUuid(game)))
+    .slice(0, limit || Number.MAX_SAFE_INTEGER);
 
-  try {
-    await context.addCookies([EPIC_AGE_GATE_COOKIE]);
-    const page = await context.newPage();
+  Object.defineProperty(games, "currentGameUuids", {
+    value: currentGameUuids,
+    enumerable: false,
+  });
 
-    await page.goto(EPIC_BROWSE_URL, {
-      waitUntil: "domcontentloaded",
-      timeout: EPIC_PAGE_TIMEOUT_MS,
-    });
-    await page.waitForTimeout(EPIC_RENDER_DELAY_MS);
-    await page.waitForTimeout(
-      getRandomInt(EPIC_POST_CATALOG_DELAY_MIN_MS, EPIC_POST_CATALOG_DELAY_MAX_MS),
-    );
-    await performEpicCatalogWarmup(page);
-
-    const html = await page.content();
-    const catalogGames = parseEpicGamesFromHtml(html);
-    const currentGameUuids = catalogGames.map(buildGameUuid).filter(Boolean);
-    const knownGameUuidSet = new Set(knownGameUuids);
-    const games = catalogGames
-      .filter((game) => !knownGameUuidSet.has(buildGameUuid(game)))
-      .slice(0, limit || Number.MAX_SAFE_INTEGER);
-    const enrichedGames = await enrichEpicGames(games, context, page);
-
-    Object.defineProperty(enrichedGames, "currentGameUuids", {
-      value: currentGameUuids,
-      enumerable: false,
-    });
-
-    return enrichedGames;
-  } finally {
-    await context.close();
-    await browser.close();
-  }
+  return games;
 }
 
 module.exports = {
+  buildEpicCatalogUrl,
   fetchFreeGames,
-  parseEpicGamesFromHtml,
+  parseEpicGamesFromCatalog,
 };

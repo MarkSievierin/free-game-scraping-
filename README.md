@@ -1,6 +1,6 @@
 # Epic Games Free Games Telegram Bot
 
-Node.js script that opens Epic Games Store catalog with Playwright, parses the rendered HTML and sends games with a `-100%` discount to Telegram.
+Node.js script that reads Epic Games Store free promotions from its catalog JSON endpoint and sends games with a `-100%` discount to Telegram.
 
 ## Structure
 
@@ -17,29 +17,16 @@ Node.js script that opens Epic Games Store catalog with Playwright, parses the r
 npm install
 ```
 
-2. Install Playwright browser locally, or use system Chrome on the server.
-
-```bash
-npx playwright install chromium
-```
-
-On Ubuntu servers where Epic scraping needs a headed browser, install Chrome and Xvfb:
-
-```bash
-apt update
-apt install xvfb -y
-```
-
-3. Fill in `.env`:
+2. Fill in `.env`:
 
 ```env
 APP_TYPE=stage
 MAX_GAMES=
 ENABLE_EPIC=true
 ENABLE_STEAM=false
-EPIC_BROWSER_HEADLESS=false
-EPIC_BROWSER_CHANNEL=chrome
-EPIC_BROWSER_EXECUTABLE_PATH=/usr/bin/google-chrome
+EPIC_LOCALE=ru-RU
+EPIC_COUNTRY=UA
+EPIC_ALLOW_COUNTRIES=UA
 
 MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
@@ -52,12 +39,13 @@ CHAT_ID=your_chat_id
 
 BOT_TOKEN_DEV=your_stage_telegram_bot_token
 CHAT_ID_DEV=your_stage_chat_id
+TELEGRAM_CHANNEL_USERNAME=free_games7722
 ```
 
 `ENABLE_EPIC` and `ENABLE_STEAM` control which source flows run. At least one of them must be `true`.
 `APP_TYPE=prod` writes `prod` records, every other value writes `stage` records. Records are unique by `server_type + uuid`.
 
-4. Initialize MySQL database and run migrations:
+3. Initialize MySQL database and run migrations:
 
 ```bash
 npm run setup:db
@@ -67,22 +55,16 @@ The bot stores Telegram `message_id` values for sent games. On later runs it rem
 
 ## Run
 
-Local or headless browser mode:
+Run the bot:
 
 ```bash
 npm start
 ```
 
-Server mode with `EPIC_BROWSER_HEADLESS=false`:
-
-```bash
-xvfb-run -a npm start
-```
-
 For cron:
 
 ```bash
-cd /root/free-game-scraping-stage && xvfb-run -a npm start
+cd /root/free-game-scraping-stage && npm start
 ```
 
 ## Remote MySQL Access
